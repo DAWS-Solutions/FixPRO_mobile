@@ -1,0 +1,153 @@
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useAuth } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+
+// Pages
+import AuthPage from '../pages/AuthPage';
+import UserHomePage from '../pages/UserHomePage';
+import MessagesPage from '../pages/MessagesPage';
+import ReservationsPage from '../pages/ReservationsPage';
+import ProfilePage from '../pages/ProfilePage';
+import ServiceWorkersPage from '../pages/ServiceWorkersPage';
+import ProfessionalsPage from '../pages/ProfessionalsPage';
+import ReservationDetails from '../pages/ReservationDetails';
+import WorkerProfile from '../pages/WorkerProfile';
+import WorkerDashboard from '../pages/WorkerDashboard';
+import WorkerHomePage from '../pages/WorkerHomePage';
+import WorkerReservationsPage from '../pages/WorkerReservationsPage';
+import WorkerMessagesPage from '../pages/WorkerMessagesPage';
+import WorkerProfilePage from '../pages/WorkerProfilePage';
+import WorkerReservationDetailsPage from '../pages/WorkerReservationDetailsPage';
+
+const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
+const WorkerTab = createBottomTabNavigator();
+
+const MainTabs = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Messages') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          } else if (route.name === 'Reservations') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#667eea',
+        tabBarInactiveTintColor: '#999',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={UserHomePage} />
+      <Tab.Screen name="Messages" component={MessagesPage} />
+      <Tab.Screen name="Reservations" component={ReservationsPage} />
+      <Tab.Screen name="Profile" component={ProfilePage} />
+    </Tab.Navigator>
+  );
+};
+
+const WorkerTabs = () => {
+  return (
+    <WorkerTab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Messages') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          } else if (route.name === 'Demandes') {
+            iconName = focused ? 'clipboard' : 'clipboard-outline';
+          } else {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#667eea',
+        tabBarInactiveTintColor: '#999',
+        headerShown: false,
+      })}
+    >
+      <WorkerTab.Screen name="Dashboard" component={WorkerHomePage} />
+      <WorkerTab.Screen name="Demandes" component={WorkerReservationsPage} />
+      <WorkerTab.Screen name="Messages" component={WorkerMessagesPage} />
+      <WorkerTab.Screen name="Profil" component={WorkerProfilePage} />
+    </WorkerTab.Navigator>
+  );
+};
+
+const AppNavigator = () => {
+  const { isAuthenticated, loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }} edges={['top']}>
+        <ActivityIndicator size="large" color="#667eea" />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!isAuthenticated ? (
+          <Stack.Screen name="Auth" component={AuthPage} />
+        ) : user?.role === 'WORKER' ? (
+          <>
+            <Stack.Screen name="WorkerDashboard" component={WorkerTabs} />
+            <Stack.Screen
+              name="WorkerReservationDetails"
+              component={WorkerReservationDetailsPage}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="WorkerProfile" 
+              component={WorkerProfile}
+              options={{ headerShown: false }}
+            />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen 
+              name="ServiceWorkers" 
+              component={ServiceWorkersPage}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Professionals"
+              component={ProfessionalsPage}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="ReservationDetails" 
+              component={ReservationDetails}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="WorkerProfile" 
+              component={WorkerProfile}
+              options={{ headerShown: false }}
+            />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+};
+
+export default AppNavigator;
