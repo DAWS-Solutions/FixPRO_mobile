@@ -11,6 +11,7 @@ import {
   RefreshControl,
   TextInput,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
@@ -31,10 +32,7 @@ const UserHomePage = ({ navigation }) => {
 
   useEffect(() => {
     loadData();
-    
-    // Initialize socket connection
-    socketService.connect();
-    
+
     // Listen for navigation to review page
     socketService.on('navigate_to_review', (data) => {
       navigation.navigate('Rating', {
@@ -42,7 +40,7 @@ const UserHomePage = ({ navigation }) => {
         workerId: data.workerId
       });
     });
-    
+
     // Cleanup on unmount
     return () => {
       socketService.off('navigate_to_review');
@@ -198,25 +196,27 @@ const UserHomePage = ({ navigation }) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>FixPro</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.headerBackground} />
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.headerTitle}>FixPro</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Messages')}
+            >
+              <Ionicons name="notifications" size={24} color={Colors.textLight} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => navigation.navigate('Messages')}
-          >
-            <Ionicons name="notifications" size={24} color={Colors.textLight} />
-          </TouchableOpacity>
-        </View>
         <Text style={styles.welcomeText}>
           Bonjour {userData?.name || user?.name || ''}, Comment pouvons-nous vous aider?
         </Text>
@@ -307,6 +307,7 @@ const UserHomePage = ({ navigation }) => {
         ))}
       </View>
     </ScrollView>
+    </View>
   );
 };
 
@@ -314,6 +315,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.headerBackground,
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -324,7 +328,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.headerBackground,
     paddingHorizontal: width * 0.05,
-    paddingTop: height * 0.03,
+    paddingTop: height * 0.05,
     paddingBottom: height * 0.03,
   },
   headerTop: {

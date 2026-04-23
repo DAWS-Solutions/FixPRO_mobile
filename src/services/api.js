@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.EXPO_API_URL || 'http://10.90.13.226:3001/api';
+const API_BASE_URL = process.env.EXPO_API_URL || 'http://10.132.59.226:3001/api';
 
 class ApiService {
   constructor() {
@@ -203,6 +203,32 @@ class ApiService {
     return this.request(`/reviews/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Messages endpoints
+  async getConversations() {
+    return this.request('/messages');
+  }
+
+  async getMessages(reservationId) {
+    return this.request(`/messages/${reservationId}`);
+  }
+
+  async markConversationAsRead(reservationId) {
+    return this.request(`/messages/${reservationId}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  async sendMessage(reservationId, content, type = 'text') {
+    return this.request(`/messages/${reservationId}`, {
+      method: 'POST',
+      body: JSON.stringify({ content, type }),
+    });
+  }
+
+  async getWorkerMessages(workerId) {
+    return this.request(`/messages/worker/${workerId}`);
   }
 }
 

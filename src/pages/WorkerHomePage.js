@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
@@ -14,7 +14,7 @@ const WorkerHomePage = ({ navigation }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      console.log("awiofjawoifj",user)
+      console.log("awiofjawoifj", user)
       const response = await apiService.getWorkerReservations(user.id);
       const list = response.data?.reservations || response.reservations || response.data || response || [];
       setReservations(Array.isArray(list) ? list : []);
@@ -45,12 +45,26 @@ const WorkerHomePage = ({ navigation }) => {
   }, [reservations]);
 
   const recentReservations = reservations.slice(0, 5);
-  const incomingRequests = reservations.filter((item) => item.status === 'pending').slice(0, 2);
+  const incomingRequests = reservations.filter((item) => item.status === 'PENDING').slice(0, 2);
+  console.log(reservations)
 
   const onUpdateStatus = async (reservationId, status) => {
     try {
       await apiService.updateReservationStatus(reservationId, status);
       await loadData();
+      
+      // If accepting reservation, redirect to messages
+      if (status === 'accepted') {
+        // Find the reservation from current data to avoid extra API call
+        const currentReservation = reservations.find(r => r.id === reservationId);
+        
+        if (currentReservation) {
+          // Navigate to messages with specific reservation
+          navigation.navigate('Messages', { 
+            conversationId: currentReservation.id 
+          });
+        }
+      }
     } catch (error) {
       console.error('Failed to update reservation status from dashboard:', error);
       Alert.alert('Erreur', "Impossible de mettre à jour la demande.");
@@ -66,15 +80,17 @@ const WorkerHomePage = ({ navigation }) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
-    >
-      <View style={styles.header}>
-        <Text style={styles.logo}>FixPro</Text>
-        <Text style={styles.headerTitle}>Bonjour, {user?.name || 'Professionnel'} 👋</Text>
-        <Text style={styles.headerSubtitle}>Simple · rapide · fiable</Text>
-      </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.headerBackground} />
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+      >
+        <View style={styles.header}>
+          <Text style={styles.logo}>FixPro</Text>
+          <Text style={styles.headerTitle}>Bonjour, {user?.name || 'Professionnel'} 👋</Text>
+          <Text style={styles.headerSubtitle}>Simple · rapide · fiable</Text>
+        </View>
 
       <View style={styles.statsGrid}>
         {[
@@ -102,24 +118,80 @@ const WorkerHomePage = ({ navigation }) => {
         </View>
         {incomingRequests.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="calendar-outline" size={30} color={Colors.textTertiary} />
-            <Text style={styles.emptyText}>Aucune nouvelle demande</Text>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="calendar-outline" size={40} color={Colors.textTertiary} />
+            </View>
+            <Text style={styles.emptyTitle}>Aucune nouvelle demande</Text>
+            <Text style={styles.emptySubtitle}>Vous serez notifié ici des nouvelles réservations</Text>
           </View>
         ) : (
           incomingRequests.map((reservation) => (
             <TouchableOpacity
               key={reservation.id}
-              style={styles.activityCard}
+              style={styles.requestCard}
               onPress={() => navigation.navigate('WorkerReservationDetails', { reservation })}
             >
-              <Text style={styles.activityTitle}>{reservation.clientName || reservation.user?.name || 'Client'}</Text>
-              <Text style={styles.activityMeta}>{reservation.service?.name || reservation.service || 'Service'}</Text>
-              <Text style={styles.activityMeta}>{reservation.description || 'Réparation demandée'}</Text>
-              <View style={styles.inlineActions}>
-                <TouchableOpacity style={styles.refuseBtn} onPress={() => onUpdateStatus(reservation.id, 'cancelled')}>
-                  <Text style={styles.refuseText}>Refuser</Text>
+              {/* Header with urgency indicator */}
+              <View style={styles.requestHeader}>
+                <View style={styles.requestInfo}>
+                  <View style={styles.clientInfo}>
+                    <View style={styles.clientAvatar}>
+                      <Ionicons name="person" size={20} color={Colors.primary} />
+                    </View>
+                    <View style={styles.clientDetails}>
+                      <Text style={styles.clientName}>{reservation.clientName || reservation.user?.name || 'Client'}</Text>
+                      <Text style={styles.requestTime}>
+                        {new Date(reservation.createdAt).toLocaleDateString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                  {reservation.emergency && (
+                    <View style={styles.urgencyBadge}>
+                      <Ionicons name="alert-circle" size={14} color="#fff" />
+                      <Text style={styles.urgencyText}>Urgent</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Service details */}
+              <View style={styles.requestBody}>
+                <View style={styles.serviceInfo}>
+                  <View style={styles.serviceIcon}>
+                    <Ionicons name="construct" size={18} color={Colors.primary} />
+                  </View>
+                  <View style={styles.serviceDetails}>
+                    <Text style={styles.serviceName}>{reservation.service?.name || reservation.service || 'Service'}</Text>
+                    <Text style={styles.description}>{reservation.description || 'Réparation demandée'}</Text>
+                  </View>
+                </View>
+
+                {/* Location info */}
+                <View style={styles.locationInfo}>
+                  <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
+                  <Text style={styles.locationText}>
+                    {reservation.address || reservation.location?.address || 'Adresse client'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action buttons */}
+              <View style={styles.requestActions}>
+                <TouchableOpacity 
+                  style={styles.declineBtn} 
+                  onPress={() => onUpdateStatus(reservation.id, 'cancelled')}
+                >
+                  <Ionicons name="close-circle" size={16} color="#fff" />
+                  <Text style={styles.declineText}>Refuser</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.acceptBtn} onPress={() => onUpdateStatus(reservation.id, 'accepted')}>
+                <TouchableOpacity 
+                  style={styles.acceptBtn} 
+                  onPress={() => onUpdateStatus(reservation.id, 'accepted')}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color="#fff" />
                   <Text style={styles.acceptText}>Accepter</Text>
                 </TouchableOpacity>
               </View>
@@ -152,13 +224,15 @@ const WorkerHomePage = ({ navigation }) => {
         )}
       </View>
     </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  scrollView: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  header: { backgroundColor: Colors.headerBackground, paddingTop: 56, paddingHorizontal: 56, paddingBottom: 18 },
+  header: { backgroundColor: Colors.headerBackground, paddingTop: 60, paddingHorizontal: 20, paddingBottom: 18 },
   logo: { color: Colors.textLight, fontSize: 38, fontWeight: '700' },
   headerTitle: { color: Colors.textLight, fontSize: 28, fontWeight: '700', marginTop: 8 },
   headerSubtitle: { color: Colors.textLight, opacity: 0.9, marginTop: 6, fontSize: 16 },
@@ -173,14 +247,165 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
   linkText: { color: Colors.primary, fontWeight: '600' },
-  activityCard: { backgroundColor: Colors.card, borderRadius: 12, padding: 12, marginTop: 8 },
-  activityTitle: { color: Colors.text, fontWeight: '600' },
-  activityMeta: { color: Colors.textSecondary, marginTop: 2, fontSize: 12 },
-  inlineActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 },
-  acceptBtn: { backgroundColor: '#1f66d1', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 8 },
-  acceptText: { color: Colors.textLight, fontWeight: '700' },
-  refuseBtn: { backgroundColor: '#fde2e7', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 8 },
-  refuseText: { color: '#9b3550', fontWeight: '700' },
+  requestCard: { 
+    backgroundColor: Colors.card, 
+    borderRadius: 16, 
+    padding: 16, 
+    marginTop: 12, 
+    marginBottom: 8,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  requestInfo: {
+    flex: 1,
+  },
+  clientInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  clientAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f8ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  clientDetails: {
+    flex: 1,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  requestTime: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  urgencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  urgencyText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  requestBody: {
+    marginBottom: 16,
+  },
+  serviceInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  serviceIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f8ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  serviceDetails: {
+    flex: 1,
+  },
+  serviceName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  description: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locationText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  declineBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fde2e7',
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  declineText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9b3550',
+  },
+  acceptBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1f66d1',
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  acceptText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textLight,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
   emptyCard: { backgroundColor: Colors.card, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
   emptyText: { color: Colors.textSecondary, marginTop: 8 },
   interventionCard: { backgroundColor: Colors.card, borderRadius: 12, padding: 12, marginTop: 8 },

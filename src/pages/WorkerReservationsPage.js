@@ -47,7 +47,15 @@ const WorkerReservationsPage = ({ navigation }) => {
   const onUpdateStatus = async (reservationId, status) => {
     try {
       await apiService.updateReservationStatus(reservationId, status);
-      await loadReservations();
+      
+      // If accepting reservation, navigate to messages
+      if (status === 'accepted') {
+        navigation.navigate('Messages', { 
+          conversationId: reservationId 
+        });
+      } else {
+        await loadReservations();
+      }
     } catch (error) {
       console.error('Failed to update reservation status:', error);
       Alert.alert('Erreur', "Impossible de mettre à jour le statut de la réservation.");

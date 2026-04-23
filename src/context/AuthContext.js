@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/api';
+import socketService from '../services/socketService';
 
 const AuthContext = createContext();
 
@@ -29,6 +30,8 @@ export const AuthProvider = ({ children }) => {
       if (token && userData) {
         setUser(JSON.parse(userData));
         setIsAuthenticated(true);
+        // Connect socket after loading stored auth
+        socketService.connect();
       } else {
         setUser(null);
         setIsAuthenticated(false);
@@ -52,6 +55,8 @@ export const AuthProvider = ({ children }) => {
       
       setUser(userData);
       setIsAuthenticated(true);
+      // Connect socket after successful login
+      socketService.connect();
       
       return { success: true, user: userData, role: userData.role };
     } catch (error) {
@@ -62,6 +67,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Disconnect socket on logout
+      socketService.disconnect();
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');
       setUser(null);

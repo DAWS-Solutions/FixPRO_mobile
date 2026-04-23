@@ -56,7 +56,9 @@ const ReservationsPage = ({ navigation }) => {
   };
 
   const filteredReservations = reservations.filter((reservation) => {
-    return filter === 'all' || reservation.status === filter;
+    if (filter === 'all') return true;
+    const statusLower = (reservation.status || '').toLowerCase();
+    return statusLower === filter.toLowerCase();
   });
 
   const handleViewDetails = (reservation) => {

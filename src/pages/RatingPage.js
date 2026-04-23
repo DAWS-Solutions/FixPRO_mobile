@@ -45,11 +45,18 @@ const RatingPage = ({ route, navigation }) => {
         workerId,
         rating,
         comment,
+        wouldHireAgain: true,
       });
       Alert.alert('Succès', 'Votre évaluation a été envoyée', [
         {
           text: 'OK',
-          onPress: () => navigation.goBack(),
+          onPress: () => {
+            // Refresh the reservations page when going back
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
+          },
         },
       ]);
     } catch (error) {

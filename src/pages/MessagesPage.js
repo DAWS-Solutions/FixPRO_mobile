@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,58 +9,59 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
+import { useFocusEffect } from '@react-navigation/native';
 import apiService from '../services/api';
 import messageService from '../services/messageService';
+import socketService from '../services/socketService';
 import { Colors } from '../styles/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MessagesPage = ({ route }) => {
   const { conversationId } = route.params || {};
   const { user } = useAuth();
+  const { resetUnreadMessages } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState([]);
-  const [activeConversationId, setActiveConversationId] = useState(conversationId || null);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
+  const activeConversationRef = useRef(null);
+  const messagesScrollViewRef = useRef(null);
 
   const userId = user?.id || user?.userId || user?.email || 'guest';
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeConversationRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  const sortConversations = (convs) => {
+    return [...convs].sort((a, b) => {
+      const dateA = new Date(a.lastMessage?.createdAt || a.updatedAt || 0);
+      const dateB = new Date(b.lastMessage?.createdAt || b.updatedAt || 0);
+      return dateB - dateA; // newest first
+    });
+  };
 
   const loadConversations = async () => {
     try {
       setLoading(true);
-      const reservationsResponse = await apiService.getUserReservations(user.id).catch(() => null);
-      const reservations =
-        reservationsResponse?.data?.reservations ||
-        reservationsResponse?.reservations ||
-        reservationsResponse?.data ||
-        reservationsResponse ||
-        [];
-      // Only show conversations for accepted reservations
-      const acceptedReservations = Array.isArray(reservations) ? reservations.filter(
-        (reservation) => reservation.status === 'ACCEPTED' || reservation.status === 'accepted'
-      ) : [];
-
-      await messageService.syncConversationsFromReservations(userId, acceptedReservations);
-      const nextConversations = await messageService.getConversations(userId);
-      setConversations(nextConversations);
-
-      const fallbackConversationId = nextConversations[0]?.id || null;
-      const nextActiveId = conversationId || activeConversationId || fallbackConversationId;
-      setActiveConversationId(nextActiveId);
-
-      if (nextActiveId) {
-        const nextMessages = await messageService.getMessages(userId, nextActiveId);
-        setMessages(nextMessages);
-      } else {
-        setMessages([]);
-      }
+      const response = await apiService.getConversations();
+      const conversations = response.data?.conversations || response.conversations || response.data || response || [];
+      const mapped = conversations.map(conv => ({
+        ...conv,
+        unreadCount: conv.unreadCount || conv.unread_count || 0
+      }));
+      setConversations(sortConversations(mapped));
     } catch (error) {
       console.error('Failed to load conversations:', error);
       setConversations([]);
-      setMessages([]);
     } finally {
       setLoading(false);
     }
@@ -70,10 +71,63 @@ const MessagesPage = ({ route }) => {
     loadConversations();
   }, []);
 
+  // Hook 1: listener setup (runs once on mount)
   useEffect(() => {
-    if (!activeConversationId) return;
-    messageService.getMessages(userId, activeConversationId).then(setMessages);
-  }, [activeConversationId, userId]);
+    const handleNewMessage = (data) => {
+      console.log('New message received:', data);
+      if (data.reservationId === activeConversationRef.current) {
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === data.message.id);
+          return exists ? prev : [...prev, data.message];
+        });
+      } else {
+        setConversations(prev => {
+          const updated = prev.map(conv =>
+            conv.id === data.reservationId
+              ? { ...conv, lastMessage: { content: data.message.content, createdAt: data.message.createdAt }, unreadCount: Math.max(0, (conv.unreadCount || 0) + 1) }
+              : conv
+          );
+          return sortConversations(updated);
+        });
+      }
+    };
+
+    socketService.on('new_message', handleNewMessage);
+
+    return () => {
+      socketService.off('new_message', handleNewMessage);
+    };
+  }, []);
+
+  // Hook 2: room join/leave (runs when active conversation changes)
+  useEffect(() => {
+    if (activeConversationId) {
+      socketService.joinReservation(activeConversationId);
+    }
+    return () => {
+      if (activeConversationId) {
+        socketService.leaveReservation(activeConversationId);
+      }
+    };
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (conversationId) {
+      setActiveConversationId(conversationId);
+      loadMessages(conversationId);
+      socketService.joinReservation(conversationId);
+    }
+  }, [conversationId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      resetUnreadMessages();
+      // Only reload conversations if not currently viewing a chat
+      if (!activeConversationId) {
+        loadConversations();
+      }
+    }, [resetUnreadMessages, activeConversationId])
+  );
 
   const filteredConversations = useMemo(() => {
     if (!search.trim()) return conversations;
@@ -87,24 +141,96 @@ const MessagesPage = ({ route }) => {
 
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId);
 
+  const handleBack = () => {
+    socketService.leaveReservation(activeConversationId);
+    setActiveConversationId(null);
+    activeConversationRef.current = null;
+    setMessages([]);
+  };
+
   const onOpenConversation = async (id) => {
     setActiveConversationId(id);
-    const nextMessages = await messageService.getMessages(userId, id);
-    setMessages(nextMessages);
+    activeConversationRef.current = id;
+    setMessages([]);
+    loadMessages(id);
+    socketService.joinReservation(id);
+    
+    // Mark conversation as read in DB
+    try {
+      await apiService.markConversationAsRead(id);
+    } catch (error) {
+      console.error('Failed to mark conversation as read:', error);
+    }
+    
+    setConversations(prev => {
+      const updated = prev.map(conv =>
+        conv.id === id
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      );
+      // Reset tab badge if all conversations are now read
+      const remainingUnread = updated.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+      if (remainingUnread === 0) {
+        resetUnreadMessages();
+      }
+      return updated;
+    });
+  };
+
+  const loadMessages = async (conversationId) => {
+    try {
+      const messagesResponse = await apiService.getMessages(conversationId);
+      const messages = messagesResponse.data?.messages || messagesResponse.messages || messagesResponse.data || messagesResponse || [];
+      setMessages(messages);
+      // Scroll to bottom after messages load
+      setTimeout(() => {
+        messagesScrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setMessages([]);
+    }
   };
 
   const onSend = async () => {
     if (!activeConversationId || !draft.trim()) return;
-    const sent = await messageService.sendMessage(userId, activeConversationId, draft, 'USER', 'Vous');
-    if (!sent) return;
+    const messageContent = draft.trim();
     setDraft('');
-    const [nextMessages, nextConversations] = await Promise.all([
-      messageService.getMessages(userId, activeConversationId),
-      messageService.getConversations(userId),
-    ]);
-    setMessages(nextMessages);
-    setConversations(nextConversations);
+    try {
+      await apiService.sendMessage(activeConversationId, messageContent);
+      // Append sent message locally instead of reloading
+      const newMessage = {
+        id: Date.now(), // temporary ID
+        content: messageContent,
+        senderId: userId,
+        sender: {
+          id: userId,
+          name: user?.name || 'You',
+          role: user?.role || 'USER',
+          avatar: user?.avatar
+        },
+        createdAt: new Date().toISOString(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, newMessage]);
+      // Scroll to bottom after sending
+      setTimeout(() => {
+        messagesScrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      setDraft(messageContent); // restore draft on error
+    }
   };
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        messagesScrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    }
+  }, [messages]);
 
   if (loading) {
     return (
@@ -120,6 +246,7 @@ const MessagesPage = ({ route }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.card} />
       {!activeConversation ? (
         <View style={styles.sidebar}>
           <Text style={styles.sidebarTitle}>Messages</Text>
@@ -154,9 +281,16 @@ const MessagesPage = ({ route }) => {
                       {conversation.participantName}
                     </Text>
                     <Text style={styles.threadPreview} numberOfLines={1}>
-                      {conversation.lastMessage}
+                      {conversation.lastMessage?.content || 'No messages yet'}
                     </Text>
                   </View>
+                  {conversation.unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))
             )}
@@ -165,7 +299,7 @@ const MessagesPage = ({ route }) => {
       ) : (
         <View style={styles.chatPanel}>
           <View style={styles.chatHeader}>
-            <TouchableOpacity onPress={() => setActiveConversationId(null)} style={styles.chatBackButton}>
+            <TouchableOpacity onPress={handleBack} style={styles.chatBackButton}>
               <Ionicons name="arrow-back" size={20} color={Colors.text} />
             </TouchableOpacity>
             <View>
@@ -173,9 +307,9 @@ const MessagesPage = ({ route }) => {
               <Text style={styles.chatSubtitle}>{activeConversation.serviceName}</Text>
             </View>
           </View>
-          <ScrollView style={styles.messagesList} contentContainerStyle={styles.messagesContent}>
+          <ScrollView ref={messagesScrollViewRef} style={styles.messagesList} contentContainerStyle={styles.messagesContent}>
             {messages.map((message) => {
-              const isUser = message.senderRole === 'USER';
+              const isUser = message.sender?.role === 'USER';
               return (
                 <View
                   key={message.id}
@@ -183,7 +317,7 @@ const MessagesPage = ({ route }) => {
                 >
                   <View style={[styles.bubble, isUser ? styles.userBubble : styles.otherBubble]}>
                     <Text style={[styles.messageText, isUser && styles.userMessageText]}>
-                      {message.text}
+                      {message.content}
                     </Text>
                   </View>
                 </View>
@@ -223,7 +357,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.card,
     paddingHorizontal: 12,
-    paddingTop: 14,
+    paddingTop: 45,
   },
   sidebarTitle: {
     fontSize: 18,
@@ -286,6 +420,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  unreadBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
   chatPanel: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -294,7 +442,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingTop: 14,
+    paddingTop: 50,
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,

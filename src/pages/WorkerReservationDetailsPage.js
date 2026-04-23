@@ -18,7 +18,15 @@ const WorkerReservationDetailsPage = ({ route, navigation }) => {
   const updateStatus = async (status) => {
     try {
       await apiService.updateReservationStatus(reservation.id, status);
-      navigation.goBack();
+      
+      // If accepting reservation, navigate to messages
+      if (status === 'accepted') {
+        navigation.navigate('Messages', { 
+          conversationId: reservation.id 
+        });
+      } else {
+        navigation.goBack();
+      }
     } catch (error) {
       console.error('Failed to update reservation from details:', error);
     }

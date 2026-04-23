@@ -10,27 +10,42 @@ class SocketService {
 
   async connect() {
     try {
+      // Guard: if already connected, return early
+      if (this.socket && this.connected) {
+        if (__DEV__) console.log('Socket already connected, skipping');
+        return;
+      }
+
       const token = await AsyncStorage.getItem('token');
-      
+
       if (!token) {
         console.log('No token found, skipping socket connection');
         return;
       }
 
-      // Temporarily disable socket connection due to polling errors
-      console.log('Socket connection temporarily disabled');
-      return;
+      // Clean token: remove Bearer prefix if present
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
 
-      this.socket = io(process.env.EXPO_PUBLIC_API_URL || 'http://10.90.13.226:3001', {
+      if (!cleanToken || cleanToken.trim() === '') {
+        console.error('Token is empty after cleaning');
+        return;
+      }
+
+      const apiUrl = process.env.EXPO_API_URL || 'http://10.132.59.226:3001/api';
+      const socketUrl = apiUrl.replace('/api', '').replace(/\/$/, '');
+
+      console.log('Connecting to socket at:', socketUrl);
+
+      this.socket = io(socketUrl, {
         auth: {
-          token: token
+          token: cleanToken
         },
-        transports: ['polling'],
-        timeout: 20000,
+        transports: ['websocket', 'polling'],
+        timeout: 60000,
         forceNew: true,
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
+        reconnectionAttempts: 10,
+        reconnectionDelay: 2000
       });
 
       this.socket.on('connect', () => {
@@ -45,22 +60,29 @@ class SocketService {
 
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error.message);
+        console.error('Description:', error.description);
+        console.error('Context:', error.context);
+        this.connected = false;
+      });
+
+      this.socket.on('reconnect_error', (error) => {
+        console.error('Socket reconnect error:', error.message);
         console.error('Full error:', error);
+      });
+
+      this.socket.on('reconnect_failed', () => {
+        console.error('Socket reconnection failed after all attempts');
         this.connected = false;
       });
 
       // Listen for reservation updates
       this.socket.on('reservation_update', (data) => {
         console.log('Reservation update received:', data);
-        // Handle reservation status updates in real-time
-        // This could trigger a refresh of reservations list or update UI
       });
 
       // Listen for job completion notifications
       this.socket.on('job_completed_for_review', (data) => {
         console.log('Job completed for review:', data);
-        
-        // Show alert to user about job completion
         Alert.alert(
           'Travail terminé',
           data.message || 'Le travail est terminé. Veuillez évaluer le travailleur.',
@@ -68,9 +90,6 @@ class SocketService {
             {
               text: 'Évaluer maintenant',
               onPress: () => {
-                // Navigate to rating page
-                // This will need to be handled by the navigation system
-                // You can emit an event or use a callback
                 this.emit('navigate_to_review', {
                   reservationId: data.reservationId,
                   workerId: data.workerId
@@ -86,23 +105,26 @@ class SocketService {
       });
 
       // Listen for new messages
-      this.socket.on('new_message', (data) => {
+      this.socket.on('new_message', async (data) => {
         console.log('New message received:', data);
-        // Handle new messages in real-time
-        // This could update the messages list or show a notification
+        // Persist unread count for background state
+        try {
+          const stored = await AsyncStorage.getItem('unreadCount');
+          const current = stored ? parseInt(stored) : 0;
+          await AsyncStorage.setItem('unreadCount', String(current + 1));
+        } catch (error) {
+          console.error('Failed to persist unread count:', error);
+        }
       });
 
       // Listen for worker location updates
       this.socket.on('worker_location_update', (data) => {
         console.log('Worker location update:', data);
-        // Handle real-time location tracking
-        // This could update a map or show worker's current location
       });
 
       // Listen for typing indicators
       this.socket.on('user_typing', (data) => {
         console.log('User typing indicator:', data);
-        // Handle typing indicators in chat
       });
 
       // Listen for errors
@@ -113,14 +135,18 @@ class SocketService {
 
     } catch (error) {
       console.error('Failed to connect socket:', error);
+      console.error('Error details:', error.message, error.description, error.context);
     }
   }
 
   disconnect() {
     if (this.socket) {
+      // Remove all listeners before disconnecting
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
       this.connected = false;
+      console.log('Socket disconnected and cleaned up');
     }
   }
 
@@ -200,6 +226,7 @@ class SocketService {
   // Listen to custom events
   on(event, callback) {
     if (this.socket) {
+      this.socket.off(event, callback); // remove first to prevent duplicates
       this.socket.on(event, callback);
     }
   }
@@ -209,6 +236,28 @@ class SocketService {
     if (this.socket) {
       this.socket.off(event, callback);
     }
+  }
+
+  // Register listener when socket is ready, with retry logic
+  onWhenReady(event, callback, maxRetries = 10) {
+    if (this.socket && this.connected) {
+      this.socket.off(event, callback);
+      this.socket.on(event, callback);
+      return;
+    }
+
+    let retries = 0;
+    const retryInterval = setInterval(() => {
+      retries++;
+      if (this.socket && this.connected) {
+        clearInterval(retryInterval);
+        this.socket.off(event, callback);
+        this.socket.on(event, callback);
+      } else if (retries >= maxRetries) {
+        clearInterval(retryInterval);
+        console.log(`Failed to register listener for ${event} after ${maxRetries} retries`);
+      }
+    }, 1000);
   }
 }
 

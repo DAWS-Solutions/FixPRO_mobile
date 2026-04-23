@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 
 // Pages
@@ -16,6 +17,8 @@ import ProfilePage from '../pages/ProfilePage';
 import ServiceWorkersPage from '../pages/ServiceWorkersPage';
 import ProfessionalsPage from '../pages/ProfessionalsPage';
 import ReservationDetails from '../pages/ReservationDetails';
+import RatingPage from '../pages/RatingPage';
+import OrderTracking from '../pages/OrderTracking';
 import WorkerProfile from '../pages/WorkerProfile';
 import WorkerDashboard from '../pages/WorkerDashboard';
 import WorkerHomePage from '../pages/WorkerHomePage';
@@ -29,6 +32,7 @@ const Tab = createBottomTabNavigator();
 const WorkerTab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const { unreadMessages } = useNotifications();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -53,7 +57,18 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={UserHomePage} />
-      <Tab.Screen name="Messages" component={MessagesPage} />
+      <Tab.Screen 
+        name="Messages" 
+        component={MessagesPage} 
+        options={{
+          tabBarBadge: unreadMessages > 0 ? (unreadMessages > 99 ? '99+' : unreadMessages) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#FF3B30',
+            color: '#fff',
+            fontSize: 10,
+          }
+        }}
+      />
       <Tab.Screen name="Reservations" component={ReservationsPage} />
       <Tab.Screen name="Profile" component={ProfilePage} />
     </Tab.Navigator>
@@ -61,6 +76,7 @@ const MainTabs = () => {
 };
 
 const WorkerTabs = () => {
+  const { unreadMessages } = useNotifications();
   return (
     <WorkerTab.Navigator
       screenOptions={({ route }) => ({
@@ -84,7 +100,18 @@ const WorkerTabs = () => {
     >
       <WorkerTab.Screen name="Dashboard" component={WorkerHomePage} />
       <WorkerTab.Screen name="Demandes" component={WorkerReservationsPage} />
-      <WorkerTab.Screen name="Messages" component={WorkerMessagesPage} />
+      <WorkerTab.Screen 
+        name="Messages" 
+        component={WorkerMessagesPage}
+        options={{
+          tabBarBadge: unreadMessages > 0 ? (unreadMessages > 99 ? '99+' : unreadMessages) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#FF3B30',
+            color: '#fff',
+            fontSize: 10,
+          }
+        }}
+      />
       <WorkerTab.Screen name="Profil" component={WorkerProfilePage} />
     </WorkerTab.Navigator>
   );
@@ -141,6 +168,16 @@ const AppNavigator = () => {
             <Stack.Screen 
               name="WorkerProfile" 
               component={WorkerProfile}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="Rating" 
+              component={RatingPage}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="OrderTracking" 
+              component={OrderTracking}
               options={{ headerShown: false }}
             />
           </>
