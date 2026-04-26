@@ -94,7 +94,7 @@ const WorkerHomePage = ({ navigation }) => {
 
       <View style={styles.statsGrid}>
         {[
-          { label: 'Revenus ce mois', value: `${stats.completed * 70} TND`, icon: 'stats-chart', color: Colors.primary, featured: true },
+          { label: 'Credits', value: `${stats.total * 2} TND`, icon: 'stats-chart', color: Colors.primary, featured: true },
           { label: 'Missions', value: stats.total, icon: 'calendar-clear', color: Colors.primary },
           { label: 'Note', value: '4.8', icon: 'star', color: '#eab308' },
           { label: 'Prix', value: '80 - 110 TND', icon: 'pricetag', color: '#f59e0b' },

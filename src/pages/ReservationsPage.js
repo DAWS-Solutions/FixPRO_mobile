@@ -9,11 +9,14 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import apiService from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../styles/theme';
+import { useNotifications } from '../context/NotificationContext';
 
 const ReservationsPage = ({ navigation }) => {
+  const { resetReservationUnread } = useNotifications();
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -22,6 +25,13 @@ const ReservationsPage = ({ navigation }) => {
   useEffect(() => {
     loadReservations();
   }, []);
+
+  // Reset reservation badge when entering this tab
+  useFocusEffect(
+    React.useCallback(() => {
+      resetReservationUnread();
+    }, [resetReservationUnread])
+  );
 
   const loadReservations = async () => {
     try {
@@ -69,7 +79,7 @@ const ReservationsPage = ({ navigation }) => {
     navigation.navigate('Rating', {
       reservationId: reservation.id,
       workerId: reservation.workerId,
-      workerName: reservation.workerName || reservation.worker?.name || 'Travailleur',
+      workerName: reservation.workerName || reservation.worker?.name || 'technicien',
     });
   };
 
@@ -296,6 +306,17 @@ const ReservationsPage = ({ navigation }) => {
                     <Ionicons name="eye-outline" size={18} color={Colors.textLight} />
                     <Text style={styles.viewButtonText}>Voir détails</Text>
                   </TouchableOpacity>
+
+                  {(reservation.status === 'accepted' || reservation.status === 'ACCEPTED' || 
+                    reservation.status === 'in_progress' || reservation.status === 'IN_PROGRESS') && (
+                    <TouchableOpacity
+                      style={styles.contactButton}
+                      onPress={() => navigation.navigate('Messages', { conversationId: reservation.id })}
+                    >
+                      <Ionicons name="chatbubbles-outline" size={18} color={Colors.textLight} />
+                      <Text style={styles.contactButtonText}>Contacter</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {(reservation.status === 'completed' || reservation.status === 'COMPLETED') && !reservation.userRating && (
                     <TouchableOpacity
@@ -612,51 +633,71 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // Actions - matches WorkerProfile button style
-  cardActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  viewButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  viewButtonText: {
-    color: Colors.textLight,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rateButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.success,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  rateButtonText: {
-    color: Colors.textLight,
-    fontSize: 14,
-    fontWeight: '600',
-  },
+// Actions - matches WorkerProfile button style
+cardActions: {
+  flexDirection: 'row',
+  gap: 10,
+},
+viewButton: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: Colors.primary,
+  paddingVertical: 12,
+  borderRadius: 12,
+  gap: 6,
+  shadowColor: Colors.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+viewButtonText: {
+  color: Colors.textLight,
+  fontSize: 14,
+  fontWeight: '600',
+},
+contactButton: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: Colors.secondary || '#8b5cf6',
+  paddingVertical: 12,
+  borderRadius: 12,
+  gap: 6,
+  shadowColor: Colors.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+contactButtonText: {
+  color: Colors.textLight,
+  fontSize: 14,
+  fontWeight: '600',
+},
+rateButton: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: Colors.success,
+  paddingVertical: 12,
+  borderRadius: 12,
+  gap: 6,
+  shadowColor: Colors.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+rateButtonText: {
+  color: Colors.textLight,
+  fontSize: 14,
+  fontWeight: '600',
+},
 });
 
 export default ReservationsPage;

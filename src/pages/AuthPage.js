@@ -128,7 +128,7 @@ const AuthPage = ({ navigation }) => {
               color={activeTab === 'worker' ? '#fff' : '#666'}
             />
             <Text style={[styles.tabText, activeTab === 'worker' && styles.activeTabText]}>
-              Travailleur
+              technicien
             </Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.EXPO_API_URL || 'http://10.132.59.226:3001/api';
+const API_BASE_URL = process.env.EXPO_API_URL || 'http://10.58.224.226:3001/api';
 
 class ApiService {
   constructor() {

@@ -6,6 +6,8 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.connected = false;
+    this.onlineUsers = new Set();
+    this.presenceListeners = new Set();
   }
 
   async connect() {
@@ -31,7 +33,7 @@ class SocketService {
         return;
       }
 
-      const apiUrl = process.env.EXPO_API_URL || 'http://10.132.59.226:3001/api';
+      const apiUrl = process.env.EXPO_API_URL || 'http://10.58.224.226:3001/api';
       const socketUrl = apiUrl.replace('/api', '').replace(/\/$/, '');
 
       console.log('Connecting to socket at:', socketUrl);
@@ -51,6 +53,21 @@ class SocketService {
       this.socket.on('connect', () => {
         console.log('Socket connected successfully');
         this.connected = true;
+      });
+
+      // Listen for presence events
+      this.socket.on('online_users_list', ({ onlineUsers }) => {
+        this.onlineUsers = new Set(onlineUsers);
+      });
+
+      this.socket.on('user_online', ({ userId }) => {
+        this.onlineUsers.add(userId);
+        this.presenceListeners.forEach(cb => cb(userId, true));
+      });
+
+      this.socket.on('user_offline', ({ userId }) => {
+        this.onlineUsers.delete(userId);
+        this.presenceListeners.forEach(cb => cb(userId, false));
       });
 
       this.socket.on('disconnect', () => {
@@ -85,7 +102,7 @@ class SocketService {
         console.log('Job completed for review:', data);
         Alert.alert(
           'Travail terminé',
-          data.message || 'Le travail est terminé. Veuillez évaluer le travailleur.',
+          data.message || 'Le travail est terminé. Veuillez évaluer le technicien.',
           [
             {
               text: 'Évaluer maintenant',
@@ -258,6 +275,16 @@ class SocketService {
         console.log(`Failed to register listener for ${event} after ${maxRetries} retries`);
       }
     }, 1000);
+  }
+
+  // Presence methods
+  onPresenceChange(callback) {
+    this.presenceListeners.add(callback);
+    return () => this.presenceListeners.delete(callback); // returns unsubscribe fn
+  }
+
+  isOnline(userId) {
+    return this.onlineUsers.has(userId);
   }
 }
 

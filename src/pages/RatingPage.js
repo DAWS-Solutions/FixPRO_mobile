@@ -73,14 +73,14 @@ const RatingPage = ({ route, navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={Colors.textLight} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Évaluer le travailleur</Text>
+        <Text style={styles.headerTitle}>Évaluer le technicien</Text>
       </View>
 
       <ScrollView style={styles.content}>
         <View style={styles.card}>
           <View style={styles.workerInfo}>
             <Ionicons name="person" size={48} color={Colors.primary} />
-            <Text style={styles.workerName}>{workerName || 'Travailleur'}</Text>
+            <Text style={styles.workerName}>{workerName || 'technicien'}</Text>
           </View>
 
           <Text style={styles.label}>Note globale</Text>

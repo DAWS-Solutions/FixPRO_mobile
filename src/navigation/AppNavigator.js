@@ -32,7 +32,7 @@ const Tab = createBottomTabNavigator();
 const WorkerTab = createBottomTabNavigator();
 
 const MainTabs = () => {
-  const { unreadMessages } = useNotifications();
+  const { unreadMessages, reservationUnread } = useNotifications();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -69,14 +69,25 @@ const MainTabs = () => {
           }
         }}
       />
-      <Tab.Screen name="Reservations" component={ReservationsPage} />
+      <Tab.Screen 
+        name="Reservations" 
+        component={ReservationsPage}
+        options={{
+          tabBarBadge: reservationUnread > 0 ? (reservationUnread > 99 ? '99+' : reservationUnread) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#FF3B30',
+            color: '#fff',
+            fontSize: 10,
+          }
+        }}
+      />
       <Tab.Screen name="Profile" component={ProfilePage} />
     </Tab.Navigator>
   );
 };
 
 const WorkerTabs = () => {
-  const { unreadMessages } = useNotifications();
+  const { unreadMessages, reservationUnread } = useNotifications();
   return (
     <WorkerTab.Navigator
       screenOptions={({ route }) => ({
@@ -99,7 +110,18 @@ const WorkerTabs = () => {
       })}
     >
       <WorkerTab.Screen name="Dashboard" component={WorkerHomePage} />
-      <WorkerTab.Screen name="Demandes" component={WorkerReservationsPage} />
+      <WorkerTab.Screen 
+        name="Demandes" 
+        component={WorkerReservationsPage}
+        options={{
+          tabBarBadge: reservationUnread > 0 ? (reservationUnread > 99 ? '99+' : reservationUnread) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#FF3B30',
+            color: '#fff',
+            fontSize: 10,
+          }
+        }}
+      />
       <WorkerTab.Screen 
         name="Messages" 
         component={WorkerMessagesPage}

@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import apiService from '../services/api';
 import { Colors } from '../styles/theme';
+import { useNotifications } from '../context/NotificationContext';
 
 const WorkerReservationsPage = ({ navigation }) => {
+  const { resetReservationUnread } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [reservations, setReservations] = useState([]);
@@ -37,6 +40,13 @@ const WorkerReservationsPage = ({ navigation }) => {
   useEffect(() => {
     loadReservations();
   }, []);
+
+  // Reset reservation badge when entering this tab
+  useFocusEffect(
+    React.useCallback(() => {
+      resetReservationUnread();
+    }, [resetReservationUnread])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -113,6 +123,9 @@ const WorkerReservationsPage = ({ navigation }) => {
 
               {(reservation.status === 'accepted' || reservation.status === 'ACCEPTED' || reservation.status === 'in_progress' || reservation.status === 'IN_PROGRESS') && (
                 <View style={styles.actions}>
+                  <TouchableOpacity style={styles.contactBtn} onPress={() => navigation.navigate('Messages', { conversationId: reservation.id })}>
+                    <Text style={styles.actionText}>Contacter</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={styles.finishBtn} onPress={() => onUpdateStatus(reservation.id, 'completed')}>
                     <Text style={styles.actionText}>Terminer</Text>
                   </TouchableOpacity>
@@ -140,6 +153,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   acceptBtn: { flex: 1, borderRadius: 10, backgroundColor: Colors.success, paddingVertical: 10, alignItems: 'center' },
   declineBtn: { flex: 1, borderRadius: 10, backgroundColor: Colors.error, paddingVertical: 10, alignItems: 'center' },
+  contactBtn: { flex: 1, borderRadius: 10, backgroundColor: Colors.secondary || '#8b5cf6', paddingVertical: 10, alignItems: 'center' },
   finishBtn: { flex: 1, borderRadius: 10, backgroundColor: Colors.primary, paddingVertical: 10, alignItems: 'center' },
   actionText: { color: Colors.textLight, fontWeight: '700' },
   emptyCard: { backgroundColor: Colors.card, borderRadius: 12, padding: 16, alignItems: 'center' },

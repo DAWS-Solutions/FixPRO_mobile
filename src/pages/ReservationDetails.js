@@ -133,7 +133,7 @@ const ReservationDetails = ({ route, navigation }) => {
           : null);
 
       if (!workerIdValue || !serviceIdValue) {
-        Alert.alert('Erreur', 'Informations du travailleur ou du service manquantes.');
+        Alert.alert('Erreur', 'Informations du technicien ou du service manquantes.');
         return;
       }
 
@@ -216,7 +216,7 @@ const ReservationDetails = ({ route, navigation }) => {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="person-outline" size={64} color={Colors.textTertiary} />
-        <Text style={styles.errorText}>Travailleur non trouvé</Text>
+        <Text style={styles.errorText}>technicien non trouvé</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.retryButtonText}>Retour</Text>
         </TouchableOpacity>
