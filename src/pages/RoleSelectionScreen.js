@@ -48,7 +48,7 @@ export default function RoleSelectionScreen({ navigation }) {
             <Text style={styles.roleDesc}>J'ai besoin d'un service{'\n'}à domicile</Text>
           </View>
           <Image
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png' }}
+            source={require('../assets/user.png')}
             style={styles.roleIllustration}
             resizeMode="contain"
           />
@@ -69,7 +69,7 @@ export default function RoleSelectionScreen({ navigation }) {
             <Text style={styles.roleDesc}>Je souhaite proposer{'\n'}mes services</Text>
           </View>
           <Image
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140051.png' }}
+            source={require('../assets/worker.png')}
             style={styles.roleIllustration}
             resizeMode="contain"
           />

@@ -1,10 +1,11 @@
 import React from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  StatusBar, Dimensions, Image, ScrollView,
+  StatusBar, Dimensions, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Poppins_900Black } from '@expo-google-fonts/poppins';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 const BLUE = '#1a56db';
@@ -17,16 +18,17 @@ const FEATURE_ICONS = [
 
 export default function WelcomeScreen({ navigation }) {
   const [fontsLoaded] = useFonts({ Poppins_900Black });
+  const insets = useSafeAreaInsets();
 
   if (!fontsLoaded) {
     return null;
   }
 
   return (
-    <LinearGradient colors={['#1a56db', '#1565c0']} style={styles.container}>
+    <LinearGradient colors={['#1a56db', '#1565c0']} style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="light-content" backgroundColor={BLUE} />
 
-      {/* Section 1 - TOP (fixed) */}
+      {/* Section 1 - TOP */}
       <View style={styles.topSection}>
         {/* Logo row */}
         <View style={styles.logoRow}>
@@ -35,19 +37,19 @@ export default function WelcomeScreen({ navigation }) {
             style={styles.logoImg}
             resizeMode="contain"
           />
-          <Text style={styles.brandName}>FixPro</Text>
+          <Text style={styles.brandName} numberOfLines={0}>FixPro</Text>
         </View>
 
         {/* Tagline */}
-        <Text style={styles.tagline}>Simple • Rapide • Fiable</Text>
+        <Text style={styles.tagline} numberOfLines={0}>Simple • Rapide • Fiable</Text>
 
         {/* Subtitle */}
-        <Text style={styles.subtitle}>
+        <Text style={styles.subtitle} numberOfLines={0}>
           Trouvez le bon professionnel{'\n'}près de chez vous.
         </Text>
       </View>
 
-      {/* Section 2 - MIDDLE (flex: 1) */}
+      {/* Section 2 - MIDDLE */}
       <View style={styles.middleSection}>
         {/* Toolbox illustration */}
         <Image
@@ -57,14 +59,14 @@ export default function WelcomeScreen({ navigation }) {
         />
       </View>
 
-      {/* Section 3 - BOTTOM (fixed) */}
+      {/* Section 3 - BOTTOM */}
       <View style={styles.bottomSection}>
         <TouchableOpacity
           style={styles.loginBtn}
           onPress={() => navigation.navigate('Login')}
           activeOpacity={0.85}
         >
-          <Text style={styles.loginBtnText}>Se connecter</Text>
+          <Text style={styles.loginBtnText} numberOfLines={0}>Se connecter</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -72,7 +74,7 @@ export default function WelcomeScreen({ navigation }) {
           onPress={() => navigation.navigate('RoleSelection')}
           activeOpacity={0.85}
         >
-          <Text style={styles.registerBtnText}>Créer un compte</Text>
+          <Text style={styles.registerBtnText} numberOfLines={0}>Créer un compte</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -82,74 +84,91 @@ export default function WelcomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  // Section 1 - TOP (fixed)
+  // Section 1 - TOP
   topSection: {
-    paddingTop: height * 0.10,
     alignItems: 'center',
-    paddingHorizontal: 28,
-    marginTop: 70
+    paddingHorizontal: width * 0.06,
+    paddingTop: height * 0.03,
+    marginTop: height * 0.1,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 1,
-    marginBottom: 16,
+    marginBottom: height * 0.015,
   },
-  logoImg: { width: 90, height: 90 },
+  logoImg: {
+    width: width * 0.18,
+    height: width * 0.18,
+  },
   brandName: {
-    fontSize: 72,
+    fontSize: width * 0.16,
     fontWeight: '900',
     color: '#fff',
     letterSpacing: 0.5,
     fontFamily: 'Poppins_900Black',
+    flexShrink: 1,
   },
   tagline: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: '700',
     color: '#fff',
     letterSpacing: 1.5,
-    marginBottom: 40,
+    marginBottom: height * 0.03,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: width * 0.04,
     color: '#fff',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: height * 0.032,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
-  // Section 2 - MIDDLE (flex: 1)
+  // Section 2 - MIDDLE
   middleSection: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
   },
   toolboxImg: {
-    width: width * 0.9,
-    height: height * 0.38,
-    marginTop: 200,
+    width: width * 0.75,
+    height: width * 0.55,
   },
-  // Section 3 - BOTTOM (fixed)
+  // Section 3 - BOTTOM
   bottomSection: {
     width: width * 0.88,
-    gap: 12,
-    marginTop: 5,
-    paddingBottom: 44,
+    gap: height * 0.015,
+    paddingBottom: height * 0.02,
+    paddingHorizontal: width * 0.02,
   },
   loginBtn: {
     backgroundColor: '#fff',
-    borderRadius: 30,
-    paddingVertical: 17,
+    borderRadius: width * 0.08,
+    paddingVertical: height * 0.018,
     alignItems: 'center',
   },
-  loginBtnText: { fontSize: 17, fontWeight: '700', color: BLUE },
+  loginBtnText: {
+    fontSize: width * 0.045,
+    fontWeight: '700',
+    color: BLUE,
+    flexShrink: 1,
+  },
   registerBtn: {
-    borderRadius: 30,
-    paddingVertical: 17,
+    borderRadius: width * 0.08,
+    paddingVertical: height * 0.018,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
   },
-  registerBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  registerBtnText: {
+    fontSize: width * 0.045,
+    fontWeight: '700',
+    color: '#fff',
+    flexShrink: 1,
+  },
 });
