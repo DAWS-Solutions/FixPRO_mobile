@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../styles/theme';
+import * as ImagePicker from 'expo-image-picker';
 
 const ProfilePage = ({ navigation }) => {
   const { user, logout } = useAuth();
@@ -20,6 +22,8 @@ const ProfilePage = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
 
   useEffect(() => {
     loadProfile();
@@ -59,6 +63,10 @@ const ProfilePage = ({ navigation }) => {
         ? reservations.filter((r) => r.status === 'pending').length
         : 0;
       const totalReviewsGiven = Array.isArray(reviews) ? reviews.length : 0;
+
+      // Get avatar URL from user data
+      const avatar = userData?.user?.avatar || userData?.avatar || null;
+      setAvatarUrl(avatar);
 
       const combinedProfileData = {
         ...userData,
@@ -133,6 +141,97 @@ const ProfilePage = ({ navigation }) => {
     );
   };
 
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    const names = name.split(' ');
+    if (names.length >= 2) {
+      return names[0][0].toUpperCase() + names[1][0].toUpperCase();
+    }
+    return name[0].toUpperCase();
+  };
+
+  const handleAvatarPress = () => {
+    Alert.alert(
+      'Modifier la photo de profil',
+      'Choisissez une option',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Galerie', onPress: () => pickImage('gallery') },
+        { text: 'Caméra', onPress: () => pickImage('camera') },
+      ]
+    );
+  };
+
+  const pickImage = async (source) => {
+    try {
+      let result;
+      
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission refusée', 'L\'accès à la caméra est nécessaire.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission refusée', 'L\'accès à la galerie est nécessaire.');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        await uploadAvatar(asset);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
+    }
+  };
+
+  const uploadAvatar = async (asset) => {
+    try {
+      setUploadingAvatar(true);
+
+      // Create FormData with direct URI - NO blob/buffer conversion
+      const formData = new FormData();
+      
+      formData.append('avatar', {
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: `avatar_${Date.now()}.jpg`,
+      });
+
+      // Upload to backend
+      const response = await apiService.uploadAvatar(formData);
+
+      if (response.success && response.avatarUrl) {
+        setAvatarUrl(response.avatarUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour avec succès');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      Alert.alert('Erreur', 'Impossible de mettre à jour la photo de profil');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const renderStars = (rating) => {
     const fullStars = Math.floor(rating);
     const stars = [];
@@ -194,15 +293,33 @@ const ProfilePage = ({ navigation }) => {
 
       {/* Profile Picture Section */}
       <View style={styles.profileSection}>
-        <View style={styles.profilePictureContainer}>
+        <TouchableOpacity 
+          style={styles.profilePictureContainer}
+          onPress={handleAvatarPress}
+          disabled={uploadingAvatar}
+        >
           <View style={styles.profilePicture}>
-            <Ionicons name="person" size={60} color={Colors.primary} />
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitial}>
+                {getInitials(profileData?.user?.name || user?.name || 'U')}
+              </Text>
+            )}
+            {uploadingAvatar && (
+              <View style={styles.avatarLoadingOverlay}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
+            )}
+          </View>
+          <View style={styles.cameraIconBadge}>
+            <Ionicons name="camera" size={12} color={Colors.textLight} />
           </View>
           <View style={styles.memberBadge}>
             <Ionicons name="checkmark-circle" size={14} color={Colors.textLight} />
             <Text style={styles.memberText}>Membre</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Main Content Card */}
@@ -482,6 +599,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: Colors.primary + '30',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+  },
+  avatarInitial: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.card,
   },
   memberBadge: {
     position: 'absolute',

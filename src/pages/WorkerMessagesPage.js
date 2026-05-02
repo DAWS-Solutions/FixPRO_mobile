@@ -442,12 +442,19 @@ const WorkerMessagesPage = ({ route }) => {
             </TouchableOpacity>
             <View style={styles.chatHeaderInfo}>
               <View style={styles.chatAvatar}>
-                <Text style={styles.chatAvatarText}>
-                  {activeConversation.user.name?.charAt(0).toUpperCase() || 'C'}
-                </Text>
+                {activeConversation.user?.avatar || activeConversation.participantAvatar ? (
+                  <Image
+                    source={{ uri: activeConversation.user?.avatar || activeConversation.participantAvatar }}
+                    style={styles.chatAvatarImage}
+                  />
+                ) : (
+                  <Text style={styles.chatAvatarText}>
+                    {activeConversation.user?.name?.charAt(0).toUpperCase() || 'C'}
+                  </Text>
+                )}
               </View>
               <View style={styles.chatHeaderText}>
-                {/*<Text style={styles.chatTitle}>{activeConversation.user.name}</Text>*/}
+                <Text style={styles.chatTitle}>{activeConversation.user?.name || activeConversation.participantName || 'Client'}</Text>
                 <Text style={styles.chatSubtitle}>{activeConversation.serviceName}</Text>
                 <OnlineStatusText userId={activeConversation.user?.id} />
               </View>
@@ -761,10 +768,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
   },
   chatAvatarImage: {
-    width: '100%',
-    height: '100%',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   chatAvatarText: {
     fontSize: 18,

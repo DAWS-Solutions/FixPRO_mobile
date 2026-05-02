@@ -33,8 +33,8 @@ export default function WorkerProfile({ navigation }) {
   const [priceMax, setPriceMax] = useState('');
   
   // Avatar state
-  const [avatarBase64, setAvatarBase64] = useState(null);
-  const [hasAvatarChanged, setHasAvatarChanged] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -68,9 +68,8 @@ export default function WorkerProfile({ navigation }) {
       setPriceMin(String(profileData?.hourlyRate ?? ''));
       setPriceMax(String(profileData?.hourlyRate ?? ''));
       
-      // Set current avatar
-      setAvatarBase64(profileData?.user?.avatar ?? null);
-      setHasAvatarChanged(false);
+      // Set current avatar URL
+      setAvatarUrl(profileData?.user?.avatar ?? null);
     } catch (err) {
       console.error('[Profile] fetchProfile error:', err);
       setError('Impossible de charger le profil');
@@ -93,8 +92,7 @@ export default function WorkerProfile({ navigation }) {
     setExperience(String(profile?.experience ?? ''));
     setPriceMin(String(profile?.hourlyRate ?? ''));
     setPriceMax(String(profile?.hourlyRate ?? ''));
-    setAvatarBase64(profile?.user?.avatar ?? null);
-    setHasAvatarChanged(false);
+    setAvatarUrl(profile?.user?.avatar ?? null);
     setIsEditing(false);
   };
 
@@ -114,37 +112,15 @@ export default function WorkerProfile({ navigation }) {
         hourlyRate: parseFloat(priceMin) || 0,
       };
       
-      // Include avatar if changed
-      if (hasAvatarChanged && avatarBase64) {
-        updateData.avatar = avatarBase64;
-      }
-      
       await api.updateWorkerProfile(updateData);
-      
-      // Update avatar in auth context if changed
-      if (hasAvatarChanged && avatarBase64) {
-        await updateAvatar(avatarBase64);
-      }
       
       await fetchProfile();
       setIsEditing(false);
-      setHasAvatarChanged(false);
       
-      const successMessage = hasAvatarChanged 
-        ? 'Profil et photo de profil mis à jour avec succès ✓'
-        : 'Profil mis à jour avec succès ✓';
-      Alert.alert('Succès', successMessage);
+      Alert.alert('Succès', 'Profil mis à jour avec succès ✓');
     } catch (err) {
       console.error('[Profile] handleSaveProfile error:', err);
-      
-      // Handle specific error messages
-      if (err?.message?.includes('Image trop grande')) {
-        Alert.alert('Erreur', 'Image trop grande. Veuillez choisir une image plus petite.');
-      } else if (err?.message?.includes('Invalid image format')) {
-        Alert.alert('Erreur', 'Format d\'image invalide. Seulement JPEG et PNG sont autorisés.');
-      } else {
-        Alert.alert('Erreur', 'Échec de la mise à jour. Réessayez.');
-      }
+      Alert.alert('Erreur', 'Échec de la mise à jour. Réessayez.');
     } finally {
       setSaving(false);
     }
@@ -178,9 +154,41 @@ export default function WorkerProfile({ navigation }) {
     }
   };
 
-  const handleImageSelected = (base64String) => {
-    setAvatarBase64(base64String);
-    setHasAvatarChanged(true);
+  const handleImageSelected = async (asset) => {
+    // Asset object contains: uri, mimeType, width, height, etc.
+    await uploadAvatar(asset);
+  };
+
+  const uploadAvatar = async (asset) => {
+    try {
+      setUploadingAvatar(true);
+
+      // Create FormData with direct URI - NO blob/buffer conversion
+      const formData = new FormData();
+      
+      formData.append('avatar', {
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: `avatar_${Date.now()}.jpg`,
+      });
+
+      // Upload to backend
+      const response = await api.uploadAvatar(formData);
+
+      if (response.success && response.avatarUrl) {
+        setAvatarUrl(response.avatarUrl);
+        // Update avatar in auth context
+        await updateAvatar(response.avatarUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour avec succès');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      Alert.alert('Erreur', 'Impossible de mettre à jour la photo de profil');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleLogout = () => {
@@ -239,10 +247,16 @@ export default function WorkerProfile({ navigation }) {
 
           {/* Avatar with ProfileImagePicker */}
           <View style={styles.avatarWrapper}>
-            <ProfileImagePicker 
-              imageUri={avatarBase64}
-              onImageSelected={handleImageSelected}
-            />
+            {uploadingAvatar ? (
+              <View style={styles.avatarCircle}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : (
+              <ProfileImagePicker 
+                imageUri={avatarUrl}
+                onImageSelected={handleImageSelected}
+              />
+            )}
           </View>
 
           {/* Certified badge */}

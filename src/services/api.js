@@ -122,6 +122,33 @@ class ApiService {
     });
   }
 
+  async uploadAvatar(formData) {
+    const token = await this.getToken();
+
+    const config = {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        // Don't set Content-Type - let fetch set it with the boundary for FormData
+      },
+      body: formData,
+    };
+
+    try {
+      const response = await fetch(`${this.baseURL}/auth/upload-avatar`, config);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+      throw error;
+    }
+  }
+
   async getWorkerReservations(workerId = null) {
     if (workerId) {
       console.log('Getting worker reservations for worker ID:', workerId);

@@ -839,9 +839,16 @@ const MessagesPage = ({ route }) => {
             </TouchableOpacity>
             <View style={styles.chatHeaderInfo}>
               <View style={styles.chatAvatar}>
-                <Text style={styles.chatAvatarText}>
-                  {activeConversation.participantName?.charAt(0).toUpperCase() || 'W'}
-                </Text>
+                {activeConversation.participantAvatar || activeConversation.worker?.user?.avatar || activeConversation.worker?.avatar ? (
+                  <Image
+                    source={{ uri: activeConversation.participantAvatar || activeConversation.worker?.user?.avatar || activeConversation.worker?.avatar }}
+                    style={styles.chatAvatarImage}
+                  />
+                ) : (
+                  <Text style={styles.chatAvatarText}>
+                    {activeConversation.participantName?.charAt(0).toUpperCase() || 'W'}
+                  </Text>
+                )}
               </View>
               <View style={styles.chatHeaderText}>
                 <Text style={styles.chatTitle}>{activeConversation.participantName}</Text>

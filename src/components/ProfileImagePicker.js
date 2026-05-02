@@ -37,11 +37,10 @@ export default function ProfileImagePicker({ imageUri, onImageSelected }) {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
-        base64: true,  // FIX 5: Get base64 directly from ImagePicker
+        quality: 0.8,
       });
 
       // FIX 2: Guard against undefined result structure
@@ -70,11 +69,10 @@ export default function ProfileImagePicker({ imageUri, onImageSelected }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
-        base64: true,  // FIX 5: Get base64 directly from ImagePicker
+        quality: 0.8,
       });
 
       // FIX 2: Guard against undefined result structure
@@ -90,70 +88,17 @@ export default function ProfileImagePicker({ imageUri, onImageSelected }) {
 
   const processImage = async (asset) => {
     try {
-      // FIX 3: Guard against undefined asset
-      if (!asset) {
+      // Guard against undefined asset
+      if (!asset || !asset.uri) {
         Alert.alert('Erreur', 'Image invalide. Veuillez réessayer.');
         return;
       }
 
       setLoading(true);
 
-      // FIX 5: PRIMARY APPROACH - Use base64 directly from ImagePicker
-      if (asset.base64) {
-        // Guard: make sure base64 is valid
-        if (!asset.base64 || asset.base64.length === 0) {
-          Alert.alert('Erreur', 'Impossible de lire l\'image. Réessayez.');
-          return;
-        }
-
-        // Detect MIME type from asset or fallback to URI extension
-        const mimeType = asset.mimeType || 
-          (asset.uri && asset.uri.split('.').pop().toLowerCase() === 'png' ? 'image/png' : 'image/jpeg');
-        
-        const base64WithPrefix = `data:${mimeType};base64,${asset.base64}`;
-
-        // Guard: check size (2MB limit)
-        const approximateSizeBytes = asset.base64.length * 0.75;
-        const twoMBinBytes = 2 * 1024 * 1024;
-        if (approximateSizeBytes > twoMBinBytes) {
-          Alert.alert(
-            'Image trop grande',
-            'Veuillez choisir une image de moins de 2MB ou réduire la qualité.'
-          );
-          return;
-        }
-
-        // All good - pass to parent
-        onImageSelected(base64WithPrefix);
-        return;
-      }
-
-      // FALLBACK: If base64 is not available, try using URI with FileSystem (if available)
-      if (asset.uri) {
-        try {
-          // FIX 1: Try to import FileSystem dynamically (may not be available)
-          const FileSystem = await import('expo-file-system').catch(() => null);
-          
-          if (FileSystem && FileSystem.default) {
-            const base64String = await FileSystem.default.readFileSync(asset.uri, {
-              encoding: 'base64',
-            });
-
-            if (base64String && base64String.length > 0) {
-              const extension = asset.uri.split('.').pop().toLowerCase();
-              const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
-              const base64WithPrefix = `data:${mimeType};base64,${base64String}`;
-              onImageSelected(base64WithPrefix);
-              return;
-            }
-          }
-        } catch (fsError) {
-          console.log('FileSystem not available, using alternative approach');
-        }
-      }
-
-      // If we get here, neither base64 nor FileSystem worked
-      Alert.alert('Erreur', 'Impossible de traiter l\'image. Veuillez réessayer.');
+      // Pass the asset object directly to parent (contains uri, mimeType, etc.)
+      // This avoids base64 conversion and ArrayBuffer issues
+      onImageSelected(asset);
 
     } catch (error) {
       console.error('Image processing error:', error);

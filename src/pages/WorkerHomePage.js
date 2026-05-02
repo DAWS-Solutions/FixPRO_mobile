@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, RefreshControl,
   TouchableOpacity, StyleSheet, ActivityIndicator,
-  StatusBar, Dimensions,
+  StatusBar, Dimensions, Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -128,12 +128,19 @@ export default function WorkerHomePage({ navigation }) {
               <Text style={styles.tagline}>Simple · rapide · fiable</Text>
             </View>
 
-            {/* Avatar — hardcoded placeholder, no API image */}
+            {/* Avatar — show image if available, otherwise initials */}
             <TouchableOpacity onPress={() => navigation.navigate('Profil')}>
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>
-                  {(profile?.firstName || user?.name || 'W')?.[0]?.toUpperCase() ?? 'W'}
-                </Text>
+                {user?.avatar || profile?.user?.avatar ? (
+                  <Image
+                    source={{ uri: user?.avatar || profile?.user?.avatar }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Text style={styles.avatarInitial}>
+                    {(profile?.firstName || user?.name || 'W')?.[0]?.toUpperCase() ?? 'W'}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -338,12 +345,18 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 4 },
   tagline: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
 
-  // Avatar — hardcoded placeholder only
+  // Avatar — show image if available, otherwise initials
   avatarPlaceholder: {
     width: 52, height: 52, borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: '#fff',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
   },
   avatarInitial: { fontSize: 22, fontWeight: '700', color: '#fff' },
 
